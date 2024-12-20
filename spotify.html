@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify 曲検索アプリ</title>
+    <style>
+        /* 全体のスタイル */
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1db954, #191414);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ヘッダー */
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        /* 検索フォーム */
+        form {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 300px;
+            border: 2px solid #1db954;
+            border-radius: 20px;
+            outline: none;
+            font-size: 1rem;
+            color: #333;
+        }
+
+        input[type="text"]:focus {
+            border-color: #fff;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            background: #1db954;
+            border: none;
+            border-radius: 20px;
+            font-size: 1rem;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #14833b;
+        }
+
+        /* 検索結果エリア */
+        #results {
+            width: 80%;
+            max-width: 900px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        #results div {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        #results div:last-child {
+            border-bottom: none;
+        }
+
+        #results h2 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        #results p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        #results img {
+            margin-top: 10px;
+            border-radius: 10px;
+            max-width: 100%;
+        }
+
+        #results a {
+            display: inline-block;
+            margin-top: 10px;
+            text-decoration: none;
+            color: #1db954;
+            font-weight: bold;
+        }
+
+        #results a:hover {
+            text-decoration: underline;
+        }
+
+        /* ローディング表示 */
+        #loading {
+            font-size: 1.2rem;
+            color: #1db954;
+            margin-top: 10px;
+        }
+
+        /* ランキング表示エリア */
+        #ranking {
+            width: 80%;
+            max-width: 900px;
+            margin-top: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        #ranking h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #ranking ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        #ranking li {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Spotify 曲検索</h1>
+    <!-- 検索フォーム -->
+    <form id="search-form">
+        <input type="text" id="search-query" placeholder="曲名を入力してください" required>
+        <button type="submit">検索</button>
+    </form>
+    <div id="loading" style="display: none;">読み込み中...</div>
+    <div id="results"></div>
+    
+    <div id="ranking">
+        <h2>人気の曲ランキング</h2>
+        <ul id="ranking-list"></ul>
+    </div>
+
+    <script>
+        const CLIENT_ID = "f2380fc3bb3144baa6462d9b6b2237d4";
+        const CLIENT_SECRET = "c5225db37789483bb2d85dc3bb729ac2";
+
+        // アクセストークンを取得
+        async function getAccessToken() {
+            const res = await fetch('https://accounts.spotify.com/api/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${btoa(`${CLIENT_ID}:${CLIENT_SECRET}`)}`
+                },
+                body: 'grant_type=client_credentials'
+            });
+            return (await res.json()).access_token;
+        }
+
+        // 曲を検索して表示
+        async function searchTracks(query) {
+            const loadingDiv = document.getElementById('loading');
+            const resultsDiv = document.getElementById('results');
+            loadingDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+
+            try {
+                const token = await getAccessToken();
+                const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const tracks = data.tracks.items;
+
+                if (tracks.length > 0) {
+                    resultsDiv.innerHTML = tracks.map(track => {
+                        const duration = `${Math.floor(track.duration_ms / 60000)}分 ${String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}秒`;
+                        return `
+                            <div>
+                                <h2>${track.name}</h2>
+                                <p><strong>アーティスト:</strong> ${track.artists[0].name}</p>
+                                <p><strong>アルバム:</strong> ${track.album.name}</p>
+                                <p><strong>リリース日:</strong> ${track.album.release_date}</p>
+                                <p><strong>人気度:</strong> ${track.popularity}</p>
+                                <p><strong>曲の長さ:</strong> ${duration}</p>
+                                <img src="${track.album.images[0].url}" alt="アルバム画像">
+                                <a href="${track.external_urls.spotify}" target="_blank">Spotifyで聴く</a>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    resultsDiv.innerHTML = '<p>該当する曲が見つかりませんでした。</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = '<p>エラーが発生しました。再試行してください。</p>';
+                console.error(error);
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        // 人気のある曲ランキングを表示
+        async function displayTopTracks() {
+            const loadingDiv = document.getElementById('loading');
+            const rankingList = document.getElementById('ranking-list');
+            loadingDiv.style.display = 'block';
+            rankingList.innerHTML = '';
+
+            try {
+                const token = await getAccessToken();
+                const res = await fetch(`https://api.spotify.com/v1/browse/featured-playlists`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const playlists = data.playlists.items.slice(0, 5); // 5つのプレイリストを取得
+
+                rankingList.innerHTML = playlists.map((playlist, index) => {
+                    return `
+                        <li>${index + 1}. <strong>${playlist.name}</strong> - <a href="${playlist.external_urls.spotify}" target="_blank">聴く</a></li>
+                    `;
+                }).join('');
+            } catch (error) {
+                rankingList.innerHTML = '<li>ランキング情報の取得に失敗しました。</li>';
+                console.error(error);
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        // フォーム送信イベントを処理
+        document.getElementById('search-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const query = document.getElementById('search-query').value;
+            searchTracks(query);
+        });
+
+        // ページ読み込み時にランキング情報を表示
+        window.onload = displayTopTracks;
+    </script>
+</body>
+</html>
